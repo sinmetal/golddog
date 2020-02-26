@@ -12,12 +12,7 @@ import (
 	"go.mercari.io/datastore"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
-	"google.golang.org/appengine/urlfetch"
 )
-
-func init() {
-	http.HandleFunc("/cron/notifications", handler)
-}
 
 // GitHubNotification is GitHubのNotificationの構造体
 // 必要な項目のみ列挙している
@@ -34,12 +29,12 @@ type GitHubNotificationSubject struct {
 	Type             string `json:"type"`
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 
 	ac := GetAppConfig(ctx)
 
-	client := urlfetch.Client(ctx)
+	client := http.DefaultClient
 	req, err := http.NewRequest("GET", "https://api.github.com/notifications?participating=true", nil)
 	if err != nil {
 		log.Errorf(ctx, "%+v", err)
@@ -101,12 +96,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 45)
-		if e.NotifyCount > 0 || t.After(time.Now()) {
-			log.Infof(ctx, "not snooze...")
-			continue
+		if e.LatestCommentURL == n.Subject.LatestCommentURL {
+			t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 45)
+			if e.NotifyCount > 0 && t.After(time.Now()) {
+				log.Infof(ctx, "not snooze...")
+				continue
+			}
 		}
+		e.LatestCommentURL = n.Subject.LatestCommentURL
 
 		msg := buildMessage(e)
 		if err := PostMessage(ctx, msg); err != nil {

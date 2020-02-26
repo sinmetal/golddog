@@ -1,5 +1,0 @@
-cron:
-- description: "github notify"
-  url: /cron/notifications
-  schedule: every 3 minutes from 08:00 to 23:00
-  timezone: Asia/Tokyo

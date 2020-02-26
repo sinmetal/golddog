@@ -3,9 +3,10 @@ package backend
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"go.mercari.io/datastore"
-	"time"
 )
 
 // GitHubNotifyStore is GitHubNotify Entity Store

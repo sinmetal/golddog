@@ -20,6 +20,7 @@ const GitHubNotifyEntityKind = "GitHubNotify"
 // GitHubNotifyEntity is GitHubNotifyをDatastoreに保存するためのEntity
 type GitHubNotifyEntity struct {
 	ID               string    `json:"id" datastore:"-"`
+	Reason           string    `json:"reason"`
 	Title            string    `json:"title"`
 	URL              string    `json:"url"`
 	LatestCommentURL string    `json:"latest_comment_url"`

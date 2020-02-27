@@ -18,6 +18,7 @@ import (
 // 必要な項目のみ列挙している
 type GitHubNotification struct {
 	ID      string                    `json:"id"`
+	Reason  string                    `json:"reason"` // https://developer.github.com/v3/activity/notifications/#notification-reasons
 	Subject GitHubNotificationSubject `json:"subject"`
 }
 
@@ -85,6 +86,7 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 		e, err := store.Get(ctx, key)
 		if errors.Cause(err) == datastore.ErrNoSuchEntity {
 			e.ID = n.ID
+			e.Reason = n.Reason
 			e.Title = n.Subject.Title
 			e.URL = n.Subject.URL
 			e.LatestCommentURL = n.Subject.LatestCommentURL
@@ -96,6 +98,7 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		fmt.Printf("%+v\n", e)
 		if e.LatestCommentURL == n.Subject.LatestCommentURL {
 			t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 45)
 			if e.NotifyCount > 0 && t.After(time.Now()) {
@@ -128,5 +131,5 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 func buildMessage(n *GitHubNotifyEntity) string {
 	u := strings.Replace(n.URL, "api.github.com/repos", "github.com", -1)
 	u = strings.Replace(u, "pulls", "pull", -1)
-	return fmt.Sprintf("%s %s", n.Title, u)
+	return fmt.Sprintf("%d[%s:%s]%s %s %s %d Count", n.ID, n.Type, n.Reason, n.Title, u, n.LatestCommentURL, n.NotifyCount)
 }

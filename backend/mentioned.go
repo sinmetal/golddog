@@ -1,9 +1,7 @@
 package backend
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -13,54 +11,17 @@ import (
 	"google.golang.org/appengine/log"
 )
 
-// GitHubNotification is GitHubのNotificationの構造体
-// 必要な項目のみ列挙している
-type GitHubNotification struct {
-	ID      string                    `json:"id"`
-	Reason  string                    `json:"reason"` // https://developer.github.com/v3/activity/notifications/#notification-reasons
-	Subject GitHubNotificationSubject `json:"subject"`
-}
-
-// GitHubNotificationSubject is GitHubのNotificationのSubjectの構造体
-type GitHubNotificationSubject struct {
-	Title            string `json:"title"`
-	URL              string `json:"url"`
-	LatestCommentURL string `json:"latest_comment_url"`
-	Type             string `json:"type"`
-}
-
 func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 
 	ac := GetAppConfig(ctx)
 
-	client := http.DefaultClient
-	req, err := http.NewRequest("GET", "https://api.github.com/notifications?participating=true", nil)
+	gc := NewGitHubClient(ctx, ac.GitHubToken)
+	ns, err := gc.ListNotifications(ctx)
 	if err != nil {
-		log.Errorf(ctx, "%+v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", ac.GitHubToken))
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Errorf(ctx, "%+v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Errorf(ctx, "%+v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	log.Infof(ctx, "%s", string(body))
-	var ns []GitHubNotification
-	if err := json.Unmarshal(body, &ns); err != nil {
-		log.Errorf(ctx, "%+v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text-plain")
+		fmt.Printf("failed GitHub.ListNotifications. err=%v\n", err)
 		return
 	}
 	if len(ns) < 1 {
@@ -81,16 +42,16 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, n := range ns {
-		key := store.Key(n.ID)
+		key := store.Key(n.GetID())
 		e, err := store.Get(ctx, key)
 		if err == datastore.ErrNoSuchEntity {
 			e = &GitHubNotifyEntity{
-				ID:               n.ID,
-				Reason:           n.Reason,
-				Title:            n.Subject.Title,
-				URL:              n.Subject.URL,
-				LatestCommentURL: n.Subject.LatestCommentURL,
-				Type:             n.Subject.Type,
+				ID:               n.GetID(),
+				Reason:           n.GetReason(),
+				Title:            n.GetSubject().GetTitle(),
+				URL:              n.GetSubject().GetURL(),
+				LatestCommentURL: n.GetSubject().GetLatestCommentURL(),
+				Type:             n.GetSubject().GetType(),
 				NotifyCount:      0,
 				CreatedAt:        time.Now(),
 			}
@@ -105,7 +66,7 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Infof(ctx, "not snooze...")
 			continue
 		}
-		e.LatestCommentURL = n.Subject.LatestCommentURL
+		e.LatestCommentURL = n.GetSubject().GetLatestCommentURL()
 
 		msg := buildMessage(e)
 		if err := PostMessage(ctx, msg); err != nil {
@@ -122,13 +83,10 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	w.Header().Set("Content-type", "text-plain")
-	w.Write(body)
 }
 
 func buildMessage(n *GitHubNotifyEntity) string {
 	u := strings.Replace(n.URL, "api.github.com/repos", "github.com", -1)
 	u = strings.Replace(u, "pulls", "pull", -1)
-	return fmt.Sprintf("%d[%s:%s]%s %s %s %d Count", n.ID, n.Type, n.Reason, n.Title, u, n.LatestCommentURL, n.NotifyCount)
+	return fmt.Sprintf("%s [%s:%s] %s %s %s : %d Count", n.ID, n.Type, n.Reason, n.Title, u, n.LatestCommentURL, n.NotifyCount)
 }

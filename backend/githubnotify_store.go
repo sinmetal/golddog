@@ -2,10 +2,8 @@ package backend
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.mercari.io/datastore"
 )
 
@@ -48,7 +46,7 @@ func (store *GitHubNotifyStore) Put(ctx context.Context, n *GitHubNotifyEntity) 
 func (store *GitHubNotifyStore) Get(ctx context.Context, key datastore.Key) (*GitHubNotifyEntity, error) {
 	var e GitHubNotifyEntity
 	if err := store.ds.Get(ctx, key, &e); err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed datastore.Get; key=%+v", key))
+		return nil, err
 	}
 	return &e, nil
 }

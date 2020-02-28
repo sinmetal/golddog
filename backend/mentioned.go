@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.mercari.io/datastore"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
@@ -84,27 +83,27 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	for _, n := range ns {
 		key := store.Key(n.ID)
 		e, err := store.Get(ctx, key)
-		if errors.Cause(err) == datastore.ErrNoSuchEntity {
-			e.ID = n.ID
-			e.Reason = n.Reason
-			e.Title = n.Subject.Title
-			e.URL = n.Subject.URL
-			e.LatestCommentURL = n.Subject.LatestCommentURL
-			e.Type = n.Subject.Type
-			e.NotifyCount = 0
-			e.CreatedAt = time.Now()
+		if err == datastore.ErrNoSuchEntity {
+			e = &GitHubNotifyEntity{
+				ID:               n.ID,
+				Reason:           n.Reason,
+				Title:            n.Subject.Title,
+				URL:              n.Subject.URL,
+				LatestCommentURL: n.Subject.LatestCommentURL,
+				Type:             n.Subject.Type,
+				NotifyCount:      0,
+				CreatedAt:        time.Now(),
+			}
 		} else if err != nil {
 			log.Errorf(ctx, "%+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Printf("%+v\n", e)
-		if e.LatestCommentURL == n.Subject.LatestCommentURL {
-			t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 45)
-			if e.NotifyCount > 0 && t.After(time.Now()) {
-				log.Infof(ctx, "not snooze...")
-				continue
-			}
+		t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 60)
+		if e.NotifyCount > 0 && t.After(time.Now()) {
+			log.Infof(ctx, "not snooze...")
+			continue
 		}
 		e.LatestCommentURL = n.Subject.LatestCommentURL
 

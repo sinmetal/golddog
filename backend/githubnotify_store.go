@@ -48,5 +48,6 @@ func (store *GitHubNotifyStore) Get(ctx context.Context, key datastore.Key) (*Gi
 	if err := store.ds.Get(ctx, key, &e); err != nil {
 		return nil, err
 	}
+	e.ID = key.Name()
 	return &e, nil
 }

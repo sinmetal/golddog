@@ -46,14 +46,9 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 		e, err := store.Get(ctx, key)
 		if err == datastore.ErrNoSuchEntity {
 			e = &GitHubNotifyEntity{
-				ID:               n.GetID(),
-				Reason:           n.GetReason(),
-				Title:            n.GetSubject().GetTitle(),
-				URL:              n.GetSubject().GetURL(),
-				LatestCommentURL: n.GetSubject().GetLatestCommentURL(),
-				Type:             n.GetSubject().GetType(),
-				NotifyCount:      0,
-				CreatedAt:        time.Now(),
+				ID:          n.GetID(),
+				NotifyCount: 0,
+				CreatedAt:   time.Now(),
 			}
 		} else if err != nil {
 			log.Errorf(ctx, "%+v", err)
@@ -66,7 +61,16 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Infof(ctx, "not snooze...")
 			continue
 		}
-		e.LatestCommentURL = n.GetSubject().GetLatestCommentURL()
+
+		e.NotifyCount++
+		e = &GitHubNotifyEntity{
+			Reason:           n.GetReason(),
+			Title:            n.GetSubject().GetTitle(),
+			URL:              n.GetSubject().GetURL(),
+			LatestCommentURL: n.GetSubject().GetLatestCommentURL(),
+			Type:             n.GetSubject().GetType(),
+			UpdatedAt:        n.GetUpdatedAt(),
+		}
 
 		msg := buildMessage(e)
 		if err := PostMessage(ctx, msg); err != nil {
@@ -75,7 +79,6 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		e.NotifyCount++
 		_, err = store.Put(ctx, e)
 		if err != nil {
 			log.Errorf(ctx, "failed GitHubNotifyStore.Put %+v", err)
@@ -88,5 +91,5 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 func buildMessage(n *GitHubNotifyEntity) string {
 	u := strings.Replace(n.URL, "api.github.com/repos", "github.com", -1)
 	u = strings.Replace(u, "pulls", "pull", -1)
-	return fmt.Sprintf("%s [%s:%s] %s %s %s : %d Count", n.ID, n.Type, n.Reason, n.Title, u, n.LatestCommentURL, n.NotifyCount)
+	return fmt.Sprintf("%s [%s:%s][%s] %s %s", n.ID, n.Type, n.Reason, n.UpdatedAt.Format("01-02 15:04"), n.Title, u)
 }

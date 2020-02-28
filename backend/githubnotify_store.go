@@ -25,6 +25,7 @@ type GitHubNotifyEntity struct {
 	Type             string    `json:"type"`
 	NotifyCount      int       `json:"notifyCount"`
 	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // Key is Create Key

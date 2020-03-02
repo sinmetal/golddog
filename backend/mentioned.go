@@ -56,7 +56,7 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Printf("%+v\n", e)
-		t := e.CreatedAt.Add(time.Duration(e.NotifyCount) * time.Minute * 60)
+		t := e.NotifyAt.Add(time.Duration(e.NotifyCount) * time.Minute * 60)
 		if e.NotifyCount > 0 && t.After(time.Now()) {
 			log.Infof(ctx, "not snooze...")
 			continue
@@ -72,13 +72,19 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:        n.GetUpdatedAt(),
 		}
 
-		msg := buildMessage(e)
+		msg, err := buildMessage(e)
+		if err != nil {
+			log.Errorf(ctx, "failed buildMessage %+v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		if err := PostMessage(ctx, msg); err != nil {
 			log.Errorf(ctx, "failed slack.post %+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		e.NotifyAt = time.Now()
 		_, err = store.Put(ctx, e)
 		if err != nil {
 			log.Errorf(ctx, "failed GitHubNotifyStore.Put %+v", err)
@@ -88,8 +94,15 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildMessage(n *GitHubNotifyEntity) string {
+func buildMessage(n *GitHubNotifyEntity) (string, error) {
 	u := strings.Replace(n.URL, "api.github.com/repos", "github.com", -1)
 	u = strings.Replace(u, "pulls", "pull", -1)
-	return fmt.Sprintf("%s [%s:%s][%s] %s %s", n.ID, n.Type, n.Reason, n.UpdatedAt.Format("01-02 15:04"), n.Title, u)
+
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		return "", err
+	}
+
+	jst := n.UpdatedAt.In(tokyo)
+	return fmt.Sprintf("[%s:%s:%s][%s] %s %s", n.ID, n.Type, n.Reason, jst.Format("01-02 15:04"), n.Title, u), nil
 }

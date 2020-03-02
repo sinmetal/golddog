@@ -62,15 +62,12 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		e.NotifyCount++
-		e = &GitHubNotifyEntity{
-			Reason:           n.GetReason(),
-			Title:            n.GetSubject().GetTitle(),
-			URL:              n.GetSubject().GetURL(),
-			LatestCommentURL: n.GetSubject().GetLatestCommentURL(),
-			Type:             n.GetSubject().GetType(),
-			UpdatedAt:        n.GetUpdatedAt(),
-		}
+		e.Reason = n.GetReason()
+		e.Title = n.GetSubject().GetTitle()
+		e.URL = n.GetSubject().GetURL()
+		e.LatestCommentURL = n.GetSubject().GetLatestCommentURL()
+		e.Type = n.GetSubject().GetType()
+		e.UpdatedAt = n.GetUpdatedAt()
 
 		msg, err := buildMessage(e)
 		if err != nil {
@@ -84,6 +81,7 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		e.NotifyCount++
 		e.NotifyAt = time.Now()
 		_, err = store.Put(ctx, e)
 		if err != nil {

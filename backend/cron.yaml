@@ -1,4 +1,0 @@
-cron:
-- description: "github notify"
-  url: /cron/notifications
-  schedule: every 3 minutes

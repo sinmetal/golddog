@@ -34,14 +34,14 @@ func GetAppConfig(ctx context.Context) *AppConfig {
 
 // getAppConfigImple
 func getAppConfigFromDatastore(ctx context.Context) (*AppConfig, error) {
-	ds, err := FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	k := ds.NameKey("AppConfig", "golddog", nil)
+	//ds, err := FromContext(ctx)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//k := ds.NameKey("AppConfig", "golddog", nil)
 	var c AppConfig
-	if err := ds.Get(ctx, k, &c); err != nil {
-		return nil, err
-	}
+	//if err := ds.Get(ctx, k, &c); err != nil {
+	//	return nil, err
+	//}
 	return &c, nil
 }

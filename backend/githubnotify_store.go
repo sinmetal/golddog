@@ -12,6 +12,10 @@ type GitHubNotifyStore struct {
 	ds datastore.Client
 }
 
+func NewGitHubNotifyStore(ctx context.Context, ds datastore.Client) (*GitHubNotifyStore, error) {
+	return &GitHubNotifyStore{ds: ds}, nil
+}
+
 //GitHubNotifyEntityKind is Kind Name
 const GitHubNotifyEntityKind = "GitHubNotify"
 

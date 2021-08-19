@@ -22,5 +22,5 @@ steps:
       - --memory=128M
       - --concurrency=8
       - --allow-unauthenticated
-      - --update-secrets='GITHUB_TOKEN=github_token:1'
+      - --update-secrets=GITHUB_TOKEN=github_token:1
       - --image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/apiserver/$BRANCH_NAME:$COMMIT_SHA

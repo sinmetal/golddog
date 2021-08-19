@@ -21,4 +21,4 @@ steps:
       - --memory=128M
       - --concurrency=8
       - --allow-unauthenticated
-      - --image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/golddog/$BRANCH_NAME:$COMMIT_SHA
+      - --image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/apiserver/$BRANCH_NAME:$COMMIT_SHA

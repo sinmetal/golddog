@@ -6,13 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vvakame/sdlog/aelog"
 	"go.mercari.io/datastore"
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/log"
 )
 
-func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
+func (h *Handlers) CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
 	ac := GetAppConfig(ctx)
 
@@ -31,19 +30,9 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ds, err := FromContext(ctx)
-	if err != nil {
-		log.Errorf(ctx, "%+v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	store := GitHubNotifyStore{
-		ds,
-	}
-
 	for _, n := range ns {
-		key := store.Key(n.GetID())
-		e, err := store.Get(ctx, key)
+		key := h.gitHubNotifyStore.Key(n.GetID())
+		e, err := h.gitHubNotifyStore.Get(ctx, key)
 		if err == datastore.ErrNoSuchEntity {
 			e = &GitHubNotifyEntity{
 				ID:          n.GetID(),
@@ -51,14 +40,14 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:   time.Now(),
 			}
 		} else if err != nil {
-			log.Errorf(ctx, "%+v", err)
+			aelog.Errorf(ctx, "%+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Printf("%+v\n", e)
 		t := e.NotifyAt.Add(time.Duration(e.NotifyCount) * time.Minute * 60)
 		if e.NotifyCount > 0 && t.After(time.Now()) {
-			log.Infof(ctx, "not snooze...")
+			aelog.Infof(ctx, "not snooze...")
 			continue
 		}
 
@@ -71,21 +60,21 @@ func CronNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 
 		msg, err := buildMessage(e)
 		if err != nil {
-			log.Errorf(ctx, "failed buildMessage %+v", err)
+			aelog.Errorf(ctx, "failed buildMessage %+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if err := PostMessage(ctx, msg); err != nil {
-			log.Errorf(ctx, "failed slack.post %+v", err)
+			aelog.Errorf(ctx, "failed slack.post %+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		e.NotifyCount++
 		e.NotifyAt = time.Now()
-		_, err = store.Put(ctx, e)
+		_, err = h.gitHubNotifyStore.Put(ctx, e)
 		if err != nil {
-			log.Errorf(ctx, "failed GitHubNotifyStore.Put %+v", err)
+			aelog.Errorf(ctx, "failed GitHubNotifyStore.Put %+v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
